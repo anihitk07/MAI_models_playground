@@ -1,0 +1,21 @@
+# MAI Model Demo — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Azure Speech SDK (MAI-Transcribe-1 & MAI-Voice-1)
+azure-cognitiveservices-speech>=1.40.0
+
+# Azure Identity (optional Entra ID / managed identity auth)
+azure-identity>=1.17.0
+
+# HTTP client for REST API calls (MAI-Image-2, LLM Speech)
+requests>=2.32.0
+
+# Environment variable management (.env file support)
+python-dotenv>=1.0.0
+
+# Image display and manipulation in notebooks
+Pillow>=10.0.0
+
+# Notebook utilities
+ipython>=8.0.0
+ipywidgets>=8.0.0
