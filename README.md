@@ -44,7 +44,7 @@ MAI_Model_demo/
 ├── 01_MAI_Transcribe_1.ipynb   ← Speech-to-text notebook
 ├── 02_MAI_Voice_1.ipynb        ← Text-to-speech notebook
 ├── 03_MAI_Image_2.ipynb        ← Text-to-image notebook
-└── MS_LEARN_GUIDE.md           ← This document
+└── README.md           ← This document
 ```
 
 ---
