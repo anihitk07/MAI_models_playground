@@ -1,11 +1,5 @@
 # MAI Models on Microsoft Foundry
 
-> **Module:** Getting started with MAI-Transcribe-1, MAI-Voice-1, and MAI-Image-2  
-> **Audience:** Developers building AI-powered applications on Azure  
-> **Last updated:** April 2026
-
----
-
 ## Introduction
 
 Microsoft AI (MAI) has released three world-class multimodal AI models, now available in public preview through **Microsoft Foundry**. These are the same models that power Microsoft's own products — Copilot, Bing, PowerPoint, and Azure Speech — and are now accessible to every developer:
