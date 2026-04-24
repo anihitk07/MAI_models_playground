@@ -180,47 +180,6 @@ for phrase in result["combinedPhrases"]:
     print(phrase["text"])
 ```
 
-### Code: With speaker diarization
-
-> **Note:** Diarization requires using LLM speech enhanced mode without specifying `"model": "mai-transcribe-1"`. Diarization is not currently supported with the `mai-transcribe-1` model parameter.
-
-```python
-definition = {
-    "enhancedMode": {
-        "enabled": True,
-        "task": "transcribe"
-    },
-    "diarization": {
-        "enabled": True,
-        "maxSpeakers": 2
-    }
-}
-```
-
-### Code: Prompt-tuning for domain terms
-
-```python
-definition = {
-    "enhancedMode": {
-        "enabled": True,
-        "model": "mai-transcribe-1",
-        "task": "transcribe",
-        "prompt": ["Pay attention to Azure, Microsoft Foundry, MAI, Copilot, LLM."]
-    }
-}
-```
-
-### Code: Translation
-
-```python
-definition = {
-    "enhancedMode": {
-        "enabled": True,
-        "task": "translate",
-        "targetLanguage": "ko"   # en, zh, de, fr, it, ja, es, pt, ko
-    }
-}
-```
 
 ### Use cases
 
