@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "mai"
+    },
+    "foundryLocation": {
+      "value": "eastus"
+    },
+    "transcribeSpeechLocation": {
+      "value": "eastus"
+    },
+    "voiceSpeechLocation": {
+      "value": "swedencentral"
+    },
+    "deployImageModels": {
+      "value": true
+    },
+    "maiImage2DeploymentName": {
+      "value": "mai-image-2"
+    },
+    "maiImage2eDeploymentName": {
+      "value": "mai-image-2e"
+    },
+    "imageModelFormat": {
+      "value": "Microsoft"
+    },
+    "maiImage2ModelName": {
+      "value": "MAI-Image-2"
+    },
+    "maiImage2eModelName": {
+      "value": "MAI-Image-2e"
+    },
+    "maiImage2ModelVersion": {
+      "value": "2026-02-20"
+    },
+    "maiImage2eModelVersion": {
+      "value": "2026-04-09"
+    }
+  }
+}

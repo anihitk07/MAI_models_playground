@@ -3,4 +3,6 @@
 *.mp3
 *.png
 *.env
+.env.example
 images/
+*.docx

@@ -1,0 +1,882 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "16036241132013880841"
+    }
+  },
+  "parameters": {
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "mai",
+      "minLength": 2,
+      "maxLength": 10,
+      "metadata": {
+        "description": "Resource naming prefix (letters and numbers)."
+      }
+    },
+    "deployerPrincipalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional principal object ID to grant data-plane access roles (Speech + Foundry)."
+      }
+    },
+    "foundryLocation": {
+      "type": "string",
+      "defaultValue": "eastus",
+      "metadata": {
+        "description": "Foundry account location."
+      }
+    },
+    "transcribeSpeechLocation": {
+      "type": "string",
+      "defaultValue": "eastus",
+      "metadata": {
+        "description": "Region for MAI-Transcribe-1 Speech resource."
+      }
+    },
+    "voiceSpeechLocation": {
+      "type": "string",
+      "defaultValue": "swedencentral",
+      "metadata": {
+        "description": "Region for MAI-Voice-1 Speech resource."
+      }
+    },
+    "foundryAccountName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional explicit Foundry account name. Leave empty to auto-generate."
+      }
+    },
+    "foundryProjectName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional explicit Foundry project name. Leave empty to auto-generate."
+      }
+    },
+    "deployImageModels": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy MAI image model deployments on Foundry account."
+      }
+    },
+    "maiImage2DeploymentName": {
+      "type": "string",
+      "defaultValue": "mai-image-2",
+      "metadata": {
+        "description": "Image model deployment name for MAI-Image-2."
+      }
+    },
+    "maiImage2eDeploymentName": {
+      "type": "string",
+      "defaultValue": "mai-image-2e",
+      "metadata": {
+        "description": "Image model deployment name for MAI-Image-2e."
+      }
+    },
+    "imageModelFormat": {
+      "type": "string",
+      "defaultValue": "Microsoft",
+      "metadata": {
+        "description": "Model format used for MAI image deployments."
+      }
+    },
+    "maiImage2ModelName": {
+      "type": "string",
+      "defaultValue": "MAI-Image-2",
+      "metadata": {
+        "description": "Model catalog name for MAI-Image-2."
+      }
+    },
+    "maiImage2eModelName": {
+      "type": "string",
+      "defaultValue": "MAI-Image-2e",
+      "metadata": {
+        "description": "Model catalog name for MAI-Image-2e."
+      }
+    },
+    "maiImage2ModelVersion": {
+      "type": "string",
+      "defaultValue": "2026-02-20",
+      "metadata": {
+        "description": "Optional model version for MAI-Image-2."
+      }
+    },
+    "maiImage2eModelVersion": {
+      "type": "string",
+      "defaultValue": "2026-04-09",
+      "metadata": {
+        "description": "Optional model version for MAI-Image-2e."
+      }
+    },
+    "maiImage2SkuName": {
+      "type": "string",
+      "defaultValue": "GlobalStandard",
+      "metadata": {
+        "description": "Deployment SKU for MAI-Image-2."
+      }
+    },
+    "maiImage2eSkuName": {
+      "type": "string",
+      "defaultValue": "GlobalStandard",
+      "metadata": {
+        "description": "Deployment SKU for MAI-Image-2e."
+      }
+    },
+    "maiImage2Capacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity for MAI-Image-2 deployment."
+      }
+    },
+    "maiImage2eCapacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity for MAI-Image-2e deployment."
+      }
+    }
+  },
+  "variables": {
+    "prefix": "[toLower(replace(parameters('namePrefix'), '-', ''))]",
+    "suffix": "[substring(uniqueString(subscription().subscriptionId, resourceGroup().id), 0, 6)]",
+    "resolvedFoundryAccountName": "[if(empty(parameters('foundryAccountName')), format('aif{0}{1}', variables('prefix'), variables('suffix')), toLower(parameters('foundryAccountName')))]",
+    "resolvedFoundryProjectName": "[if(empty(parameters('foundryProjectName')), format('mai-project-{0}', variables('suffix')), toLower(parameters('foundryProjectName')))]",
+    "transcribeSpeechAccountName": "[format('spxtr{0}{1}', variables('prefix'), variables('suffix'))]",
+    "voiceSpeechAccountName": "[format('spxvo{0}{1}', variables('prefix'), variables('suffix'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "foundryAccount",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[variables('resolvedFoundryAccountName')]"
+          },
+          "location": {
+            "value": "[parameters('foundryLocation')]"
+          },
+          "deployerPrincipalId": {
+            "value": "[parameters('deployerPrincipalId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "15440064621214982628"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure AI Foundry account (AIServices)."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the Foundry account."
+              }
+            },
+            "allowProjectManagement": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Whether project creation is allowed for this account."
+              }
+            },
+            "deployerPrincipalId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional principal object ID to receive Cognitive Services User role on this account."
+              }
+            },
+            "publicNetworkAccess": {
+              "type": "string",
+              "defaultValue": "Enabled",
+              "allowedValues": [
+                "Enabled",
+                "Disabled"
+              ],
+              "metadata": {
+                "description": "Public network access mode."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[parameters('accountName')]",
+              "location": "[parameters('location')]",
+              "kind": "AIServices",
+              "sku": {
+                "name": "S0"
+              },
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "customSubDomainName": "[parameters('accountName')]",
+                "allowProjectManagement": "[parameters('allowProjectManagement')]",
+                "publicNetworkAccess": "[parameters('publicNetworkAccess')]"
+              }
+            },
+            {
+              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), parameters('deployerPrincipalId'), 'CognitiveServicesUser')]",
+              "properties": {
+                "principalId": "[parameters('deployerPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "accountId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+            },
+            "accountName": {
+              "type": "string",
+              "value": "[parameters('accountName')]"
+            },
+            "endpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "foundryProject",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.accountName.value]"
+          },
+          "projectName": {
+            "value": "[variables('resolvedFoundryProjectName')]"
+          },
+          "location": {
+            "value": "[parameters('foundryLocation')]"
+          },
+          "displayName": {
+            "value": "MAI Models Project"
+          },
+          "projectDescription": {
+            "value": "Project used for MAI Image, Voice, and Transcribe demos."
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "77997176591419327"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Foundry account that will host this project."
+              }
+            },
+            "projectName": {
+              "type": "string",
+              "metadata": {
+                "description": "Foundry project name."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the project."
+              }
+            },
+            "displayName": {
+              "type": "string",
+              "defaultValue": "MAI Models Project",
+              "metadata": {
+                "description": "Display name shown in Foundry."
+              }
+            },
+            "projectDescription": {
+              "type": "string",
+              "defaultValue": "Project for MAI model demos.",
+              "metadata": {
+                "description": "Project description."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('accountName'), parameters('projectName'))]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "displayName": "[parameters('displayName')]",
+                "description": "[parameters('projectDescription')]"
+              }
+            }
+          ],
+          "outputs": {
+            "projectName": {
+              "type": "string",
+              "value": "[parameters('projectName')]"
+            },
+            "projectManagedIdentityPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('accountName'), parameters('projectName')), '2025-04-01-preview', 'full').identity.principalId]"
+            },
+            "projectEndpoint": {
+              "type": "string",
+              "value": "[format('https://{0}.services.ai.azure.com/api/projects/{1}', parameters('accountName'), parameters('projectName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'foundryAccount')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "transcribeSpeech",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[variables('transcribeSpeechAccountName')]"
+          },
+          "location": {
+            "value": "[parameters('transcribeSpeechLocation')]"
+          },
+          "deployerPrincipalId": {
+            "value": "[parameters('deployerPrincipalId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "9278549118307679721"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Speech resource."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the Speech resource."
+              }
+            },
+            "deployerPrincipalId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional principal object ID to receive Cognitive Services Speech User role on this account."
+              }
+            },
+            "publicNetworkAccess": {
+              "type": "string",
+              "defaultValue": "Enabled",
+              "allowedValues": [
+                "Enabled",
+                "Disabled"
+              ],
+              "metadata": {
+                "description": "Public network access mode."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[parameters('accountName')]",
+              "location": "[parameters('location')]",
+              "kind": "SpeechServices",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[parameters('accountName')]",
+                "publicNetworkAccess": "[parameters('publicNetworkAccess')]"
+              }
+            },
+            {
+              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), parameters('deployerPrincipalId'), 'SpeechUser')]",
+              "properties": {
+                "principalId": "[parameters('deployerPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "accountName": {
+              "type": "string",
+              "value": "[parameters('accountName')]"
+            },
+            "endpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint]"
+            },
+            "location": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview', 'full').location]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "voiceSpeech",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[variables('voiceSpeechAccountName')]"
+          },
+          "location": {
+            "value": "[parameters('voiceSpeechLocation')]"
+          },
+          "deployerPrincipalId": {
+            "value": "[parameters('deployerPrincipalId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "9278549118307679721"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Speech resource."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the Speech resource."
+              }
+            },
+            "deployerPrincipalId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional principal object ID to receive Cognitive Services Speech User role on this account."
+              }
+            },
+            "publicNetworkAccess": {
+              "type": "string",
+              "defaultValue": "Enabled",
+              "allowedValues": [
+                "Enabled",
+                "Disabled"
+              ],
+              "metadata": {
+                "description": "Public network access mode."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[parameters('accountName')]",
+              "location": "[parameters('location')]",
+              "kind": "SpeechServices",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[parameters('accountName')]",
+                "publicNetworkAccess": "[parameters('publicNetworkAccess')]"
+              }
+            },
+            {
+              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), parameters('deployerPrincipalId'), 'SpeechUser')]",
+              "properties": {
+                "principalId": "[parameters('deployerPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "accountName": {
+              "type": "string",
+              "value": "[parameters('accountName')]"
+            },
+            "endpoint": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint]"
+            },
+            "location": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview', 'full').location]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployImageModels')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "image2Deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.accountName.value]"
+          },
+          "deploymentName": {
+            "value": "[parameters('maiImage2DeploymentName')]"
+          },
+          "modelName": {
+            "value": "[parameters('maiImage2ModelName')]"
+          },
+          "modelFormat": {
+            "value": "[parameters('imageModelFormat')]"
+          },
+          "modelVersion": {
+            "value": "[parameters('maiImage2ModelVersion')]"
+          },
+          "skuName": {
+            "value": "[parameters('maiImage2SkuName')]"
+          },
+          "capacity": {
+            "value": "[parameters('maiImage2Capacity')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "18113980986979221573"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Foundry account hosting the deployment."
+              }
+            },
+            "deploymentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment name."
+              }
+            },
+            "modelName": {
+              "type": "string",
+              "metadata": {
+                "description": "Model name from catalog."
+              }
+            },
+            "modelFormat": {
+              "type": "string",
+              "defaultValue": "OpenAI",
+              "metadata": {
+                "description": "Model format (for example: OpenAI)."
+              }
+            },
+            "modelVersion": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional model version from catalog."
+              }
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "GlobalStandard",
+              "metadata": {
+                "description": "Deployment SKU."
+              }
+            },
+            "capacity": {
+              "type": "int",
+              "defaultValue": 1,
+              "minValue": 1,
+              "metadata": {
+                "description": "SKU capacity for deployment."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('accountName'), parameters('deploymentName'))]",
+              "sku": {
+                "name": "[parameters('skuName')]",
+                "capacity": "[parameters('capacity')]"
+              },
+              "properties": {
+                "model": "[if(empty(parameters('modelVersion')), createObject('format', parameters('modelFormat'), 'name', parameters('modelName')), createObject('format', parameters('modelFormat'), 'name', parameters('modelName'), 'version', parameters('modelVersion')))]"
+              }
+            }
+          ],
+          "outputs": {
+            "deploymentName": {
+              "type": "string",
+              "value": "[parameters('deploymentName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'foundryAccount')]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployImageModels')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "image2eDeployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "accountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.accountName.value]"
+          },
+          "deploymentName": {
+            "value": "[parameters('maiImage2eDeploymentName')]"
+          },
+          "modelName": {
+            "value": "[parameters('maiImage2eModelName')]"
+          },
+          "modelFormat": {
+            "value": "[parameters('imageModelFormat')]"
+          },
+          "modelVersion": {
+            "value": "[parameters('maiImage2eModelVersion')]"
+          },
+          "skuName": {
+            "value": "[parameters('maiImage2eSkuName')]"
+          },
+          "capacity": {
+            "value": "[parameters('maiImage2eCapacity')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "18113980986979221573"
+            }
+          },
+          "parameters": {
+            "accountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Foundry account hosting the deployment."
+              }
+            },
+            "deploymentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Deployment name."
+              }
+            },
+            "modelName": {
+              "type": "string",
+              "metadata": {
+                "description": "Model name from catalog."
+              }
+            },
+            "modelFormat": {
+              "type": "string",
+              "defaultValue": "OpenAI",
+              "metadata": {
+                "description": "Model format (for example: OpenAI)."
+              }
+            },
+            "modelVersion": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional model version from catalog."
+              }
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "GlobalStandard",
+              "metadata": {
+                "description": "Deployment SKU."
+              }
+            },
+            "capacity": {
+              "type": "int",
+              "defaultValue": 1,
+              "minValue": 1,
+              "metadata": {
+                "description": "SKU capacity for deployment."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('accountName'), parameters('deploymentName'))]",
+              "sku": {
+                "name": "[parameters('skuName')]",
+                "capacity": "[parameters('capacity')]"
+              },
+              "properties": {
+                "model": "[if(empty(parameters('modelVersion')), createObject('format', parameters('modelFormat'), 'name', parameters('modelName')), createObject('format', parameters('modelFormat'), 'name', parameters('modelName'), 'version', parameters('modelVersion')))]"
+              }
+            }
+          ],
+          "outputs": {
+            "deploymentName": {
+              "type": "string",
+              "value": "[parameters('deploymentName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'foundryAccount')]",
+        "[resourceId('Microsoft.Resources/deployments', 'image2Deployment')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "foundryAccountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.accountName.value]"
+    },
+    "foundryEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.endpoint.value]"
+    },
+    "foundryProjectName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryProject'), '2025-04-01').outputs.projectName.value]"
+    },
+    "foundryProjectEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryProject'), '2025-04-01').outputs.projectEndpoint.value]"
+    },
+    "transcribeSpeechAccountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'transcribeSpeech'), '2025-04-01').outputs.accountName.value]"
+    },
+    "transcribeSpeechRegion": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'transcribeSpeech'), '2025-04-01').outputs.location.value]"
+    },
+    "voiceSpeechAccountName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'voiceSpeech'), '2025-04-01').outputs.accountName.value]"
+    },
+    "voiceSpeechRegion": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'voiceSpeech'), '2025-04-01').outputs.location.value]"
+    },
+    "maiImage2Deployment": {
+      "type": "string",
+      "value": "[if(parameters('deployImageModels'), reference(resourceId('Microsoft.Resources/deployments', 'image2Deployment'), '2025-04-01').outputs.deploymentName.value, '')]"
+    },
+    "maiImage2eDeployment": {
+      "type": "string",
+      "value": "[if(parameters('deployImageModels'), reference(resourceId('Microsoft.Resources/deployments', 'image2eDeployment'), '2025-04-01').outputs.deploymentName.value, '')]"
+    }
+  }
+}
