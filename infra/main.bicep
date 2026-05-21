@@ -11,12 +11,6 @@ param deployerPrincipalId string = ''
 @description('Foundry account location.')
 param foundryLocation string = 'eastus'
 
-@description('Region for MAI-Transcribe-1 Speech resource.')
-param transcribeSpeechLocation string = 'eastus'
-
-@description('Region for MAI-Voice-1 Speech resource.')
-param voiceSpeechLocation string = 'swedencentral'
-
 @description('Optional explicit Foundry account name. Leave empty to auto-generate.')
 param foundryAccountName string = ''
 
@@ -65,8 +59,6 @@ var prefix = toLower(replace(namePrefix, '-', ''))
 var suffix = substring(uniqueString(subscription().subscriptionId, resourceGroup().id), 0, 6)
 var resolvedFoundryAccountName = empty(foundryAccountName) ? 'aif${prefix}${suffix}' : toLower(foundryAccountName)
 var resolvedFoundryProjectName = empty(foundryProjectName) ? 'mai-project-${suffix}' : toLower(foundryProjectName)
-var transcribeSpeechAccountName = 'spxtr${prefix}${suffix}'
-var voiceSpeechAccountName = 'spxvo${prefix}${suffix}'
 
 module foundryAccount './modules/foundry-account.bicep' = {
   name: 'foundryAccount'
@@ -85,24 +77,6 @@ module foundryProject './modules/foundry-project.bicep' = {
     location: foundryLocation
     displayName: 'MAI Models Project'
     projectDescription: 'Project used for MAI Image, Voice, and Transcribe demos.'
-  }
-}
-
-module transcribeSpeech './modules/speech-account.bicep' = {
-  name: 'transcribeSpeech'
-  params: {
-    accountName: transcribeSpeechAccountName
-    location: transcribeSpeechLocation
-    deployerPrincipalId: deployerPrincipalId
-  }
-}
-
-module voiceSpeech './modules/speech-account.bicep' = {
-  name: 'voiceSpeech'
-  params: {
-    accountName: voiceSpeechAccountName
-    location: voiceSpeechLocation
-    deployerPrincipalId: deployerPrincipalId
   }
 }
 
@@ -136,12 +110,9 @@ module image2eDeployment './modules/model-deployment.bicep' = if (deployImageMod
 }
 
 output foundryAccountName string = foundryAccount.outputs.accountName
+output foundryAccountId string = foundryAccount.outputs.accountId
 output foundryEndpoint string = foundryAccount.outputs.endpoint
 output foundryProjectName string = foundryProject.outputs.projectName
 output foundryProjectEndpoint string = foundryProject.outputs.projectEndpoint
-output transcribeSpeechAccountName string = transcribeSpeech.outputs.accountName
-output transcribeSpeechRegion string = transcribeSpeech.outputs.location
-output voiceSpeechAccountName string = voiceSpeech.outputs.accountName
-output voiceSpeechRegion string = voiceSpeech.outputs.location
 output maiImage2Deployment string = deployImageModels ? image2Deployment!.outputs.deploymentName : ''
 output maiImage2eDeployment string = deployImageModels ? image2eDeployment!.outputs.deploymentName : ''

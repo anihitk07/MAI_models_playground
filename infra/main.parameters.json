@@ -8,12 +8,6 @@
     "foundryLocation": {
       "value": "eastus"
     },
-    "transcribeSpeechLocation": {
-      "value": "eastus"
-    },
-    "voiceSpeechLocation": {
-      "value": "swedencentral"
-    },
     "deployImageModels": {
       "value": true
     },

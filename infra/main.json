@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "16036241132013880841"
+      "templateHash": "3765985606261810262"
     }
   },
   "parameters": {
@@ -30,20 +30,6 @@
       "defaultValue": "eastus",
       "metadata": {
         "description": "Foundry account location."
-      }
-    },
-    "transcribeSpeechLocation": {
-      "type": "string",
-      "defaultValue": "eastus",
-      "metadata": {
-        "description": "Region for MAI-Transcribe-1 Speech resource."
-      }
-    },
-    "voiceSpeechLocation": {
-      "type": "string",
-      "defaultValue": "swedencentral",
-      "metadata": {
-        "description": "Region for MAI-Voice-1 Speech resource."
       }
     },
     "foundryAccountName": {
@@ -151,9 +137,7 @@
     "prefix": "[toLower(replace(parameters('namePrefix'), '-', ''))]",
     "suffix": "[substring(uniqueString(subscription().subscriptionId, resourceGroup().id), 0, 6)]",
     "resolvedFoundryAccountName": "[if(empty(parameters('foundryAccountName')), format('aif{0}{1}', variables('prefix'), variables('suffix')), toLower(parameters('foundryAccountName')))]",
-    "resolvedFoundryProjectName": "[if(empty(parameters('foundryProjectName')), format('mai-project-{0}', variables('suffix')), toLower(parameters('foundryProjectName')))]",
-    "transcribeSpeechAccountName": "[format('spxtr{0}{1}', variables('prefix'), variables('suffix'))]",
-    "voiceSpeechAccountName": "[format('spxvo{0}{1}', variables('prefix'), variables('suffix'))]"
+    "resolvedFoundryProjectName": "[if(empty(parameters('foundryProjectName')), format('mai-project-{0}', variables('suffix')), toLower(parameters('foundryProjectName')))]"
   },
   "resources": [
     {
@@ -183,7 +167,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "15440064621214982628"
+              "templateHash": "14886365653957804435"
             }
           },
           "parameters": {
@@ -210,7 +194,7 @@
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "Optional principal object ID to receive Cognitive Services User role on this account."
+                "description": "Optional principal object ID to receive Cognitive Services User and Cognitive Services Speech User roles on this account."
               }
             },
             "publicNetworkAccess": {
@@ -253,6 +237,20 @@
               "properties": {
                 "principalId": "[parameters('deployerPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), parameters('deployerPrincipalId'), 'SpeechUser')]",
+              "properties": {
+                "principalId": "[parameters('deployerPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447')]"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
@@ -380,224 +378,6 @@
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'foundryAccount')]"
       ]
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "transcribeSpeech",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "accountName": {
-            "value": "[variables('transcribeSpeechAccountName')]"
-          },
-          "location": {
-            "value": "[parameters('transcribeSpeechLocation')]"
-          },
-          "deployerPrincipalId": {
-            "value": "[parameters('deployerPrincipalId')]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "9278549118307679721"
-            }
-          },
-          "parameters": {
-            "accountName": {
-              "type": "string",
-              "metadata": {
-                "description": "Name of the Azure Speech resource."
-              }
-            },
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for the Speech resource."
-              }
-            },
-            "deployerPrincipalId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Optional principal object ID to receive Cognitive Services Speech User role on this account."
-              }
-            },
-            "publicNetworkAccess": {
-              "type": "string",
-              "defaultValue": "Enabled",
-              "allowedValues": [
-                "Enabled",
-                "Disabled"
-              ],
-              "metadata": {
-                "description": "Public network access mode."
-              }
-            }
-          },
-          "resources": [
-            {
-              "type": "Microsoft.CognitiveServices/accounts",
-              "apiVersion": "2025-04-01-preview",
-              "name": "[parameters('accountName')]",
-              "location": "[parameters('location')]",
-              "kind": "SpeechServices",
-              "sku": {
-                "name": "S0"
-              },
-              "properties": {
-                "customSubDomainName": "[parameters('accountName')]",
-                "publicNetworkAccess": "[parameters('publicNetworkAccess')]"
-              }
-            },
-            {
-              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), parameters('deployerPrincipalId'), 'SpeechUser')]",
-              "properties": {
-                "principalId": "[parameters('deployerPrincipalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447')]"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
-              ]
-            }
-          ],
-          "outputs": {
-            "accountName": {
-              "type": "string",
-              "value": "[parameters('accountName')]"
-            },
-            "endpoint": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint]"
-            },
-            "location": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview', 'full').location]"
-            }
-          }
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "voiceSpeech",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "accountName": {
-            "value": "[variables('voiceSpeechAccountName')]"
-          },
-          "location": {
-            "value": "[parameters('voiceSpeechLocation')]"
-          },
-          "deployerPrincipalId": {
-            "value": "[parameters('deployerPrincipalId')]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.42.1.51946",
-              "templateHash": "9278549118307679721"
-            }
-          },
-          "parameters": {
-            "accountName": {
-              "type": "string",
-              "metadata": {
-                "description": "Name of the Azure Speech resource."
-              }
-            },
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for the Speech resource."
-              }
-            },
-            "deployerPrincipalId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Optional principal object ID to receive Cognitive Services Speech User role on this account."
-              }
-            },
-            "publicNetworkAccess": {
-              "type": "string",
-              "defaultValue": "Enabled",
-              "allowedValues": [
-                "Enabled",
-                "Disabled"
-              ],
-              "metadata": {
-                "description": "Public network access mode."
-              }
-            }
-          },
-          "resources": [
-            {
-              "type": "Microsoft.CognitiveServices/accounts",
-              "apiVersion": "2025-04-01-preview",
-              "name": "[parameters('accountName')]",
-              "location": "[parameters('location')]",
-              "kind": "SpeechServices",
-              "sku": {
-                "name": "S0"
-              },
-              "properties": {
-                "customSubDomainName": "[parameters('accountName')]",
-                "publicNetworkAccess": "[parameters('publicNetworkAccess')]"
-              }
-            },
-            {
-              "condition": "[not(empty(parameters('deployerPrincipalId')))]",
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]",
-              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), parameters('deployerPrincipalId'), 'SpeechUser')]",
-              "properties": {
-                "principalId": "[parameters('deployerPrincipalId')]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447')]"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName'))]"
-              ]
-            }
-          ],
-          "outputs": {
-            "accountName": {
-              "type": "string",
-              "value": "[parameters('accountName')]"
-            },
-            "endpoint": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview').endpoint]"
-            },
-            "location": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('accountName')), '2025-04-01-preview', 'full').location]"
-            }
-          }
-        }
-      }
     },
     {
       "condition": "[parameters('deployImageModels')]",
@@ -842,6 +622,10 @@
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.accountName.value]"
     },
+    "foundryAccountId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.accountId.value]"
+    },
     "foundryEndpoint": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryAccount'), '2025-04-01').outputs.endpoint.value]"
@@ -853,22 +637,6 @@
     "foundryProjectEndpoint": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'foundryProject'), '2025-04-01').outputs.projectEndpoint.value]"
-    },
-    "transcribeSpeechAccountName": {
-      "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'transcribeSpeech'), '2025-04-01').outputs.accountName.value]"
-    },
-    "transcribeSpeechRegion": {
-      "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'transcribeSpeech'), '2025-04-01').outputs.location.value]"
-    },
-    "voiceSpeechAccountName": {
-      "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'voiceSpeech'), '2025-04-01').outputs.accountName.value]"
-    },
-    "voiceSpeechRegion": {
-      "type": "string",
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'voiceSpeech'), '2025-04-01').outputs.location.value]"
     },
     "maiImage2Deployment": {
       "type": "string",

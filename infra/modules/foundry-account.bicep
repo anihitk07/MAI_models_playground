@@ -9,7 +9,7 @@ param location string
 @description('Whether project creation is allowed for this account.')
 param allowProjectManagement bool = true
 
-@description('Optional principal object ID to receive Cognitive Services User role on this account.')
+@description('Optional principal object ID to receive Cognitive Services User and Cognitive Services Speech User roles on this account.')
 param deployerPrincipalId string = ''
 
 @description('Public network access mode.')
@@ -42,6 +42,15 @@ resource foundryCognitiveServicesUserRole 'Microsoft.Authorization/roleAssignmen
   properties: {
     principalId: deployerPrincipalId
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
+  }
+}
+
+resource foundrySpeechUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deployerPrincipalId)) {
+  name: guid(account.id, deployerPrincipalId, 'SpeechUser')
+  scope: account
+  properties: {
+    principalId: deployerPrincipalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f2dc8367-1007-4938-bd23-fe263f013447')
   }
 }
 

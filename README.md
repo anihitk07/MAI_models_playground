@@ -45,7 +45,7 @@ MAI_Model_demo/
 ├── 02_MAI_Voice_1.ipynb        ← Text-to-speech notebook
 ├── 03_MAI_Image_2.ipynb        ← Text-to-image notebook
 ├── infra/
-│   ├── main.bicep               ← Foundry + Speech + MAI deployment template
+│   ├── main.bicep               ← Foundry + MAI deployment template
 │   ├── main.parameters.json     ← Sample deployment parameters
 │   ├── Deploy-MaiFoundry.ps1    ← End-to-end deploy + deployment.env auto-population script
 │   └── modules/                 ← Reusable Bicep modules
@@ -62,7 +62,7 @@ This repo includes an `infra` deployment path (inspired by Foundry Bicep pattern
 
 - Azure AI Foundry account (`AIServices`) + Foundry project
 - MAI image deployments (`MAI-Image-2`, `MAI-Image-2e`)
-- Two Speech resources (Transcribe and Voice in supported regions)
+- Shared Foundry Cognitive Services endpoint for MAI-Transcribe-1 and MAI-Voice-1 samples
 - Auto-generated environment file at repo root: `deployment.env`
 
 #### Prerequisites
@@ -78,18 +78,56 @@ az account show
 pwsh .\infra\Deploy-MaiFoundry.ps1
 ```
 
+By default, each deployment run now gets a unique naming token (prefix suffix) to avoid Cognitive Services name collisions across regions and old runs.
+The script uses your current Azure CLI subscription context unless you pass `-SubscriptionId`.
+Use `-Location <azure-region>` to set both the resource group location and Foundry location in one parameter.
+
 #### Common deployment options
 
 ```powershell
 # Deploy to a specific resource group
 pwsh .\infra\Deploy-MaiFoundry.ps1 `
+  -SubscriptionId <subscription-id-or-name> `
+  -ResourceGroupName rg-mai-model-demo-eastus `
+  -Location swedencentral
+
+# Or set locations independently
+pwsh .\infra\Deploy-MaiFoundry.ps1 `
+  -SubscriptionId <subscription-id-or-name> `
   -ResourceGroupName rg-mai-model-demo-eastus `
   -ResourceGroupLocation eastus `
-  -FoundryLocation eastus
+  -FoundryLocation swedencentral
 
 # Skip MAI image deployments when quota is unavailable
 pwsh .\infra\Deploy-MaiFoundry.ps1 -SkipImageDeployments
+
+# Optional: provide your own run token (otherwise one is auto-generated)
+pwsh .\infra\Deploy-MaiFoundry.ps1 -DeploymentRunId demo01
+
+# Reuse non-unique names (not recommended): script runs strict pre-purge first
+pwsh .\infra\Deploy-MaiFoundry.ps1 `
+  -SubscriptionId <subscription-id-or-name> `
+  -ResourceGroupName rg-mai-model-demo-eastus `
+  -NoUniqueNaming
+
+# Destroy resource group + purge soft-deleted Cognitive Services accounts for that group
+pwsh .\infra\Deploy-MaiFoundry.ps1 `
+  -SubscriptionId <subscription-id-or-name> `
+  -ResourceGroupName rg-mai-model-demo-eastus `
+  -Destroy
 ```
+
+#### Name collision and soft-delete handling
+
+`Deploy-MaiFoundry.ps1` now handles common Cognitive Services naming failures:
+
+- **`InvalidResourceLocation` / name already exists in another region**  
+  Prevented by default via unique per-run naming.
+- **`CustomDomainInUse`**  
+  Mitigated by unique naming and purge support.
+- **`FlagMustBeSetForRestore` (soft-deleted account exists)**  
+  `-Destroy` deletes the resource group and force-purges soft-deleted Cognitive accounts for that group.  
+  `-NoUniqueNaming` triggers strict pre-deployment purge so the run fails fast if purge cannot complete.
 
 #### Post-deployment outputs
 
@@ -120,7 +158,7 @@ The `requirements.txt` includes:
 azure-cognitiveservices-speech>=1.40.0  # MAI-Transcribe-1 & MAI-Voice-1
 azure-identity>=1.17.0                  # Entra ID / managed identity auth
 requests>=2.32.0                        # REST API calls
-python-dotenv>=1.0.0                    # .env file support
+python-dotenv>=1.0.0                    # deployment.env loading
 Pillow>=10.0.0                          # Image display and manipulation
 ipython>=8.0.0
 ipywidgets>=8.0.0
@@ -135,26 +173,28 @@ If you are configuring manually, create/edit `deployment.env` directly with thes
 # Default auth mode for all notebooks
 USE_ENTRA_AUTH=true
 
-# Azure Speech: MAI-Transcribe-1
+# Foundry account (used by speech + image notebooks)
+AZURE_FOUNDRY_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
+AZURE_FOUNDRY_API_KEY=
+AZURE_FOUNDRY_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>
+
+# MAI-Transcribe-1 / MAI-Voice-1 (optional explicit overrides)
 TRANSCRIBE_SPEECH_KEY=
 TRANSCRIBE_SPEECH_REGION=eastus
-TRANSCRIBE_SPEECH_ENDPOINT=https://<speech-account>.cognitiveservices.azure.com
-
-# Azure Speech: MAI-Voice-1
+TRANSCRIBE_SPEECH_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
 VOICE_SPEECH_KEY=
-VOICE_SPEECH_REGION=swedencentral
-VOICE_SPEECH_ENDPOINT=https://<speech-account>.cognitiveservices.azure.com
-MAI_VOICE_NAME=en-US-MAIVoice1Neural
+VOICE_SPEECH_REGION=eastus
+VOICE_SPEECH_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
+MAI_VOICE_NAME=en-us-Grant:MAI-Voice-1
 
 # MAI-Image-2 / MAI-Image-2e
-AZURE_FOUNDRY_ENDPOINT=https://<resource-name>.services.ai.azure.com
-AZURE_FOUNDRY_API_KEY=
 MAI_IMAGE_2_DEPLOYMENT_NAME=mai-image-2
 MAI_IMAGE_2E_DEPLOYMENT_NAME=mai-image-2e
 ```
 
 When `USE_ENTRA_AUTH=true` (default), notebooks use `DefaultAzureCredential` and Bearer tokens.  
 When `USE_ENTRA_AUTH=false`, notebooks fall back to API keys from the same `deployment.env` file.
+If you use terminal auth (`az login`), keep `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` unset unless you intentionally use a service principal.
 
 > ⚠️ **Security:** Never commit `deployment.env` (it contains real environment values/secrets).
 
@@ -171,6 +211,10 @@ USE_ENTRA_AUTH = os.getenv("USE_ENTRA_AUTH", "true").lower() == "true"
 
 token_provider = None
 if USE_ENTRA_AUTH:
+    # Avoid EnvironmentCredential selecting empty SPN values from deployment.env
+    for env_var in ("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"):
+        if os.getenv(env_var) == "":
+            os.environ.pop(env_var, None)
     token_provider = get_bearer_token_provider(
         DefaultAzureCredential(),
         "https://cognitiveservices.azure.com/.default"
@@ -207,9 +251,9 @@ Copilot Voice Mode transcriptions · Copilot dictation feature · Azure Speech
 ### API endpoint
 
 - **Entra token auth (recommended):**  
-  `POST https://<speech-account>.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15`
+  `POST https://<foundry-account>.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15`
 - **API key auth:**  
-  `POST https://{region}.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15`
+  `POST https://<foundry-account>.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15`
 
 ### Code: Basic transcription
 
@@ -219,10 +263,18 @@ from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 load_dotenv("deployment.env", override=True)
-SPEECH_KEY = os.getenv("TRANSCRIBE_SPEECH_KEY") or os.getenv("SPEECH_KEY")
+SPEECH_KEY = (
+    os.getenv("TRANSCRIBE_SPEECH_KEY")
+    or os.getenv("AZURE_SPEECH_KEY")
+    or os.getenv("AZURE_FOUNDRY_API_KEY")
+    or os.getenv("SPEECH_KEY")
+)
 SPEECH_REGION = os.getenv("TRANSCRIBE_SPEECH_REGION") or os.getenv("SPEECH_REGION", "eastus")
-SPEECH_ACCOUNT = os.getenv("TRANSCRIBE_SPEECH_ACCOUNT")
-SPEECH_ENDPOINT = os.getenv("TRANSCRIBE_SPEECH_ENDPOINT")
+SPEECH_ENDPOINT = (
+    os.getenv("TRANSCRIBE_SPEECH_ENDPOINT")
+    or os.getenv("AZURE_SPEECH_ENDPOINT")
+    or os.getenv("AZURE_FOUNDRY_ENDPOINT")
+)
 USE_ENTRA_AUTH = os.getenv("USE_ENTRA_AUTH", "true").lower() == "true"
 
 token_provider = get_bearer_token_provider(
@@ -235,26 +287,22 @@ def build_auth_headers():
         return {"Authorization": f"Bearer {token_provider()}"}
     return {"Ocp-Apim-Subscription-Key": SPEECH_KEY}
 
-if USE_ENTRA_AUTH:
-    if not SPEECH_ENDPOINT and SPEECH_ACCOUNT:
-        SPEECH_ENDPOINT = f"https://{SPEECH_ACCOUNT}.cognitiveservices.azure.com"
-    assert SPEECH_ENDPOINT, "Set TRANSCRIBE_SPEECH_ENDPOINT (or TRANSCRIBE_SPEECH_ACCOUNT) for token auth"
-    TRANSCRIBE_URL = (
-        f"{SPEECH_ENDPOINT.rstrip('/')}"
-        "/speechtotext/transcriptions:transcribe"
-        "?api-version=2025-10-15"
-    )
-else:
-    TRANSCRIBE_URL = (
-        f"https://{SPEECH_REGION}.api.cognitive.microsoft.com"
-        "/speechtotext/transcriptions:transcribe"
-        "?api-version=2025-10-15"
-    )
+assert SPEECH_ENDPOINT, "Set AZURE_FOUNDRY_ENDPOINT or TRANSCRIBE_SPEECH_ENDPOINT"
+TRANSCRIBE_URL = (
+    f"{SPEECH_ENDPOINT.rstrip('/')}"
+    "/speechtotext/transcriptions:transcribe"
+    "?api-version=2025-10-15"
+)
 
 definition = {
+    "locales": ["en-US"],
+    "diarization": {
+        "enabled": True,
+        "maxSpeakers": 2
+    },
     "enhancedMode": {
         "enabled": True,
-        "model": "mai-transcribe-1"
+        "task": "transcribe"
     }
 }
 
@@ -311,9 +359,9 @@ Copilot Audio Expressions · Copilot podcast feature
 ### REST API endpoint
 
 - **Entra token auth (recommended):**  
-  `POST https://<speech-account>.cognitiveservices.azure.com/tts/cognitiveservices/v1`
+  `POST https://<foundry-account>.cognitiveservices.azure.com/tts/cognitiveservices/v1`
 - **API key auth:**  
-  `POST https://{region}.tts.speech.microsoft.com/cognitiveservices/v1`
+  `POST https://<foundry-account>.cognitiveservices.azure.com/tts/cognitiveservices/v1`
 
 ### Code: Basic text-to-speech (REST)
 
@@ -323,12 +371,23 @@ from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 load_dotenv("deployment.env", override=True)
-SPEECH_KEY = os.getenv("VOICE_SPEECH_KEY") or os.getenv("SPEECH_KEY")
-SPEECH_REGION = os.getenv("VOICE_SPEECH_REGION") or os.getenv("SPEECH_REGION", "centralus")
-SPEECH_ACCOUNT = os.getenv("VOICE_SPEECH_ACCOUNT")
-SPEECH_ENDPOINT = os.getenv("VOICE_SPEECH_ENDPOINT")
+SPEECH_KEY = (
+    os.getenv("VOICE_SPEECH_KEY")
+    or os.getenv("AZURE_SPEECH_KEY")
+    or os.getenv("AZURE_FOUNDRY_API_KEY")
+    or os.getenv("SPEECH_KEY")
+)
+SPEECH_REGION = os.getenv("VOICE_SPEECH_REGION") or os.getenv("SPEECH_REGION", "eastus")
+SPEECH_ENDPOINT = (
+    os.getenv("VOICE_SPEECH_ENDPOINT")
+    or os.getenv("AZURE_SPEECH_ENDPOINT")
+    or os.getenv("AZURE_FOUNDRY_ENDPOINT")
+)
+FOUNDRY_RESOURCE_ID = os.getenv("AZURE_FOUNDRY_RESOURCE_ID")
 USE_ENTRA_AUTH = os.getenv("USE_ENTRA_AUTH", "true").lower() == "true"
-VOICE_NAME    = os.getenv("MAI_VOICE_NAME", "en-US-MAIVoice1Neural")
+VOICE_NAME    = os.getenv("MAI_VOICE_NAME", "en-us-Grant:MAI-Voice-1")
+if USE_ENTRA_AUTH:
+    assert FOUNDRY_RESOURCE_ID, "Set AZURE_FOUNDRY_RESOURCE_ID for Speech SDK Entra auth"
 
 token_provider = get_bearer_token_provider(
     DefaultAzureCredential(),
@@ -347,13 +406,8 @@ def build_tts_headers():
         headers["Ocp-Apim-Subscription-Key"] = SPEECH_KEY
     return headers
 
-if USE_ENTRA_AUTH:
-    if not SPEECH_ENDPOINT and SPEECH_ACCOUNT:
-        SPEECH_ENDPOINT = f"https://{SPEECH_ACCOUNT}.cognitiveservices.azure.com"
-    assert SPEECH_ENDPOINT, "Set VOICE_SPEECH_ENDPOINT (or VOICE_SPEECH_ACCOUNT) for token auth"
-    TTS_ENDPOINT = f"{SPEECH_ENDPOINT.rstrip('/')}/tts/cognitiveservices/v1"
-else:
-    TTS_ENDPOINT = f"https://{SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1"
+assert SPEECH_ENDPOINT, "Set AZURE_FOUNDRY_ENDPOINT or VOICE_SPEECH_ENDPOINT"
+TTS_ENDPOINT = f"{SPEECH_ENDPOINT.rstrip('/')}/tts/cognitiveservices/v1"
 
 ssml = f"""<speak version='1.0' xml:lang='en-US'>
   <voice xml:lang='en-US' name='{VOICE_NAME}'>
@@ -396,12 +450,14 @@ ssml = f"""<speak version='1.0'
 
 ```python
 import azure.cognitiveservices.speech as speechsdk
+from urllib.parse import urlparse
 
 if USE_ENTRA_AUTH:
-    # For Entra token auth, use custom endpoint + authorization_token
-    sdk_endpoint = f"{SPEECH_ENDPOINT.rstrip('/')}/tts/cognitiveservices/v1"
-    speech_config = speechsdk.SpeechConfig(endpoint=sdk_endpoint)
-    speech_config.authorization_token = token_provider()
+    # Foundry playground pattern: endpoint + aad#{resourceId}#{token}
+    parsed = urlparse(SPEECH_ENDPOINT.rstrip("/"))
+    base_endpoint = f"{parsed.scheme}://{parsed.netloc}"
+    speech_config = speechsdk.SpeechConfig(endpoint=base_endpoint)
+    speech_config.authorization_token = f"aad#{FOUNDRY_RESOURCE_ID}#{token_provider()}"
 else:
     speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
 speech_config.speech_synthesis_voice_name = VOICE_NAME
@@ -700,7 +756,11 @@ Microsoft developed these MAI models with responsible AI at the forefront:
 
 | Error | Cause | Fix |
 |---|---|---|
-| `401 Unauthorized` (Speech) | Token principal lacks `speechrest/transcriptions/action` OR token call used regional endpoint | Assign **Cognitive Services Speech User** on the Speech resource and use `TRANSCRIBE_SPEECH_ENDPOINT=https://<speech-account>.cognitiveservices.azure.com` |
+| `401 Unauthorized` (Speech) | Token principal lacks `speechrest/transcriptions/action` OR endpoint/tenant mismatch | Assign **Cognitive Services Speech User** on the Foundry account and use `AZURE_FOUNDRY_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com` |
+| `ValueError: client_id should be the id...` | Empty `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_CLIENT_SECRET` loaded from `deployment.env` | Remove those keys (or comment them) unless using service principal auth; then rerun notebook |
+| `400 InvalidRequest` (`Enhanced mode with model is currently not supported yet`) | Endpoint doesn't currently accept `enhancedMode.model` | Remove `model` from `enhancedMode` (keep `enhancedMode.enabled/task`) and retry |
+| `400 InvalidRequest` (`Enhanced mode is currently not supported yet`) | Endpoint doesn't currently accept `enhancedMode` for this API path/region | Retry with standard definition (no `enhancedMode`) |
+| `SDK says success but file is 0 KB` | Speech SDK completed without audio bytes on this Foundry endpoint path | Use REST `/tts/cognitiveservices/v1` fallback (the notebook now does this automatically) |
 | `404 Not Found` | Wrong deployment name or endpoint | Verify in Foundry portal > Deployments |
 | `400 Bad Request` (Image) | Dimensions below minimum or pixel count exceeded | Ensure w,h ≥ 768 and w×h ≤ 1,048,576 |
 | `400 Bad Request` (Speech) | Unsupported audio format or file too large | Use WAV/MP3/FLAC, ≤ 70 MB for mai-transcribe-1 |

@@ -1,17 +1,25 @@
 [CmdletBinding()]
 param(
+    [string]$SubscriptionId = "",
     [string]$ResourceGroupName = "rg-mai-model-demo",
     [string]$ResourceGroupLocation = "eastus2",
+    [string]$Location = "",
     [string]$NamePrefix = "mai",
+    [string]$DeploymentRunId = "",
     [string]$FoundryLocation = "eastus",
-    [string]$TranscribeSpeechLocation = "eastus",
-    [string]$VoiceSpeechLocation = "swedencentral",
     [string]$EnvPath = (Join-Path $PSScriptRoot "..\.env"),
-    [switch]$SkipImageDeployments
+    [switch]$SkipImageDeployments,
+    [switch]$NoUniqueNaming,
+    [switch]$Destroy
 )
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
+
+if (-not [string]::IsNullOrWhiteSpace($Location)) {
+    $ResourceGroupLocation = $Location
+    $FoundryLocation = $Location
+}
 
 function Require-Command {
     param([Parameter(Mandatory)][string]$CommandName)
@@ -27,31 +35,19 @@ function Ensure-AzLogin {
     }
 }
 
-function Select-PreferredSubscription {
-    param(
-        [Parameter(Mandatory)][string[]]$PreferredNames
-    )
+function Resolve-SelectedSubscription {
+    param([string]$SubscriptionId)
 
-    $subscriptions = az account list --output json | ConvertFrom-Json
-    if (-not $subscriptions) {
-        throw "No Azure subscriptions available for the current identity."
+    if (-not [string]::IsNullOrWhiteSpace($SubscriptionId)) {
+        az account set --subscription $SubscriptionId --output none
     }
 
-    foreach ($preferredName in $PreferredNames) {
-        $candidate = $subscriptions | Where-Object { $_.name -eq $preferredName } | Select-Object -First 1
-        if ($null -ne $candidate) {
-            az account set --subscription $candidate.id | Out-Null
-            return $candidate
-        }
+    $current = az account show --output json | ConvertFrom-Json
+    if (-not $current) {
+        throw "Could not resolve active Azure subscription. Run 'az account show' and retry."
     }
 
-    $defaultSub = $subscriptions | Where-Object { $_.isDefault -eq $true } | Select-Object -First 1
-    if ($null -eq $defaultSub) {
-        $defaultSub = $subscriptions | Select-Object -First 1
-    }
-
-    az account set --subscription $defaultSub.id | Out-Null
-    return $defaultSub
+    return $current
 }
 
 function Ensure-ResourceProvider {
@@ -89,6 +85,117 @@ function Resolve-CurrentPrincipalObjectId {
     return ""
 }
 
+function Get-SafeNamePrefix {
+    param(
+        [Parameter(Mandatory)][string]$BasePrefix,
+        [Parameter(Mandatory)][string]$RunId,
+        [switch]$DisableUniqueNaming
+    )
+
+    $normalized = ($BasePrefix.ToLowerInvariant() -replace '[^a-z0-9]', '')
+    if ([string]::IsNullOrWhiteSpace($normalized)) {
+        throw "NamePrefix must contain at least one alphanumeric character after normalization."
+    }
+
+    if ($DisableUniqueNaming) {
+        return $normalized.Substring(0, [Math]::Min(10, $normalized.Length))
+    }
+
+    $normalizedRunId = ($RunId.ToLowerInvariant() -replace '[^a-z0-9]', '')
+    if ([string]::IsNullOrWhiteSpace($normalizedRunId)) {
+        throw "DeploymentRunId must contain at least one alphanumeric character after normalization."
+    }
+
+    $suffix = $normalizedRunId.Substring(0, [Math]::Min(4, $normalizedRunId.Length))
+    if ($suffix.Length -lt 4) {
+        $suffix = $suffix.PadRight(4, '0')
+    }
+
+    $baseMax = 10 - $suffix.Length
+    $base = $normalized.Substring(0, [Math]::Min($baseMax, $normalized.Length))
+    return "$base$suffix"
+}
+
+function Get-DeletedCognitiveAccountsForResourceGroup {
+    param(
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName
+    )
+
+    $deletedJson = az cognitiveservices account list-deleted `
+        --subscription $SubscriptionId `
+        --output json
+
+    if (-not $deletedJson) {
+        return @()
+    }
+
+    $allDeleted = $deletedJson | ConvertFrom-Json
+    $escapedRg = [regex]::Escape($ResourceGroupName)
+    return @(
+        $allDeleted | Where-Object {
+            ($_.resourceGroup -and $_.resourceGroup -ieq $ResourceGroupName) -or
+            ($_.id -match "/resourceGroups/$escapedRg/")
+        }
+    )
+}
+
+function Purge-DeletedCognitiveAccountsForResourceGroup {
+    param(
+        [Parameter(Mandatory)][string]$SubscriptionId,
+        [Parameter(Mandatory)][string]$ResourceGroupName,
+        [int]$MaxPasses = 8,
+        [int]$DelaySeconds = 15,
+        [switch]$ThrowOnRemaining
+    )
+
+    for ($pass = 1; $pass -le $MaxPasses; $pass++) {
+        $deletedAccounts = Get-DeletedCognitiveAccountsForResourceGroup `
+            -SubscriptionId $SubscriptionId `
+            -ResourceGroupName $ResourceGroupName
+
+        if (-not $deletedAccounts -or $deletedAccounts.Count -eq 0) {
+            if ($pass -eq 1) {
+                Write-Host "No soft-deleted Cognitive Services accounts found for resource group '$ResourceGroupName'."
+            }
+            return
+        }
+
+        Write-Host "Purge pass $pass/$MaxPasses for soft-deleted Cognitive Services accounts in '$ResourceGroupName'..."
+        foreach ($account in $deletedAccounts) {
+            try {
+                Write-Host "  Purging deleted account '$($account.name)' in location '$($account.location)'..."
+                az cognitiveservices account purge `
+                    --subscription $SubscriptionId `
+                    --resource-group $ResourceGroupName `
+                    --name $account.name `
+                    --location $account.location `
+                    --output none
+            }
+            catch {
+                Write-Warning "Failed to purge deleted account '$($account.name)': $($_.Exception.Message)"
+            }
+        }
+
+        if ($pass -lt $MaxPasses) {
+            Start-Sleep -Seconds $DelaySeconds
+        }
+    }
+
+    $remaining = Get-DeletedCognitiveAccountsForResourceGroup `
+        -SubscriptionId $SubscriptionId `
+        -ResourceGroupName $ResourceGroupName
+
+    if ($remaining.Count -gt 0) {
+        $remainingNames = ($remaining | ForEach-Object { $_.name }) -join ", "
+        $message = "Soft-deleted Cognitive Services accounts still remain for '$ResourceGroupName': $remainingNames"
+        if ($ThrowOnRemaining) {
+            throw $message
+        }
+        Write-Warning $message
+    }
+}
+
 function Try-GetCognitiveKey {
     param(
         [Parameter(Mandatory)][string]$ResourceGroupName,
@@ -111,14 +218,51 @@ function Try-GetCognitiveKey {
 Require-Command -CommandName "az"
 Ensure-AzLogin
 
-$selectedSubscription = Select-PreferredSubscription -PreferredNames @(
-    "MCAPS-Hybrid-aganguly",
-    "Microsoft AIRS"
-)
+$selectedSubscription = Resolve-SelectedSubscription -SubscriptionId $SubscriptionId
 
 Write-Host "Using subscription: $($selectedSubscription.name) ($($selectedSubscription.id))"
 
 Ensure-ResourceProvider -Namespace "Microsoft.CognitiveServices"
+
+if ($Destroy) {
+    Write-Host "Destroy mode enabled for resource group '$ResourceGroupName'."
+    $groupExists = az group exists --subscription $selectedSubscription.id --name $ResourceGroupName
+    if ($groupExists -eq "true") {
+        Write-Host "Deleting resource group '$ResourceGroupName'..."
+        az group delete `
+            --subscription $selectedSubscription.id `
+            --name $ResourceGroupName `
+            --yes `
+            --no-wait `
+            --output none
+
+        $maxPolls = 120
+        for ($i = 1; $i -le $maxPolls; $i++) {
+            Start-Sleep -Seconds 15
+            $stillExists = az group exists --subscription $selectedSubscription.id --name $ResourceGroupName
+            if ($stillExists -eq "false") {
+                Write-Host "Resource group '$ResourceGroupName' deleted."
+                break
+            }
+            if ($i -eq $maxPolls) {
+                throw "Timed out waiting for resource group '$ResourceGroupName' deletion."
+            }
+        }
+    }
+    else {
+        Write-Host "Resource group '$ResourceGroupName' does not exist. Continuing to purge soft-deleted accounts."
+    }
+
+    Purge-DeletedCognitiveAccountsForResourceGroup `
+        -SubscriptionId $selectedSubscription.id `
+        -ResourceGroupName $ResourceGroupName `
+        -MaxPasses 12 `
+        -DelaySeconds 15 `
+        -ThrowOnRemaining
+
+    Write-Host "Destroy completed for '$ResourceGroupName'."
+    return
+}
 
 $deployerPrincipalId = Resolve-CurrentPrincipalObjectId
 if ($deployerPrincipalId) {
@@ -131,19 +275,38 @@ else {
 az group create `
     --name $ResourceGroupName `
     --location $ResourceGroupLocation `
+    --subscription $selectedSubscription.id `
     --output none
 
-$deploymentName = "mai-foundry-" + (Get-Date -Format "yyyyMMddHHmmss")
+$autoRunId = [Guid]::NewGuid().ToString("N").Substring(0, 6)
+$runId = if ([string]::IsNullOrWhiteSpace($DeploymentRunId)) { $autoRunId } else { $DeploymentRunId }
+$effectiveNamePrefix = Get-SafeNamePrefix -BasePrefix $NamePrefix -RunId $runId -DisableUniqueNaming:$NoUniqueNaming
+Write-Host "Using deployment run ID: $runId"
+Write-Host "Using namePrefix for this run: $effectiveNamePrefix"
+
+if ($NoUniqueNaming) {
+    Write-Host "NoUniqueNaming is enabled. Running strict pre-deployment purge for '$ResourceGroupName'..."
+    Purge-DeletedCognitiveAccountsForResourceGroup `
+        -SubscriptionId $selectedSubscription.id `
+        -ResourceGroupName $ResourceGroupName `
+        -MaxPasses 12 `
+        -DelaySeconds 15 `
+        -ThrowOnRemaining
+}
+else {
+    Write-Host "Unique naming enabled. Pre-deployment purge is skipped."
+}
+
+$deploymentName = "mai-foundry-" + (Get-Date -Format "yyyyMMddHHmmss") + "-$($runId.Substring(0, [Math]::Min(4, $runId.Length)))"
 
 $outputsJson = az deployment group create `
     --name $deploymentName `
+    --subscription $selectedSubscription.id `
     --resource-group $ResourceGroupName `
     --template-file (Join-Path $PSScriptRoot "main.bicep") `
-    --parameters namePrefix=$NamePrefix `
+    --parameters namePrefix=$effectiveNamePrefix `
                  deployerPrincipalId=$deployerPrincipalId `
                  foundryLocation=$FoundryLocation `
-                 transcribeSpeechLocation=$TranscribeSpeechLocation `
-                 voiceSpeechLocation=$VoiceSpeechLocation `
                  deployImageModels=$([bool](-not $SkipImageDeployments.IsPresent)) `
     --query "properties.outputs" `
     --output json
@@ -155,22 +318,30 @@ if (-not $outputsJson) {
 $outputs = $outputsJson | ConvertFrom-Json
 
 $foundryAccountName = $outputs.foundryAccountName.value
+$foundryAccountId = $outputs.foundryAccountId.value
+$foundryAccountId = if ([string]::IsNullOrWhiteSpace($foundryAccountId)) {
+    az cognitiveservices account show `
+        --subscription $selectedSubscription.id `
+        --resource-group $ResourceGroupName `
+        --name $foundryAccountName `
+        --query "id" `
+        --output tsv
+}
+else {
+    $foundryAccountId
+}
+if ([string]::IsNullOrWhiteSpace($foundryAccountId)) {
+    throw "Could not resolve Foundry account resource ID. AZURE_FOUNDRY_RESOURCE_ID cannot be populated."
+}
 $foundryEndpoint = $outputs.foundryEndpoint.value
 $foundryProjectName = $outputs.foundryProjectName.value
 $foundryProjectEndpoint = $outputs.foundryProjectEndpoint.value
-$transcribeSpeechAccountName = $outputs.transcribeSpeechAccountName.value
-$transcribeSpeechRegion = $outputs.transcribeSpeechRegion.value
-$voiceSpeechAccountName = $outputs.voiceSpeechAccountName.value
-$voiceSpeechRegion = $outputs.voiceSpeechRegion.value
 $maiImage2Deployment = $outputs.maiImage2Deployment.value
 $maiImage2eDeployment = $outputs.maiImage2eDeployment.value
-$transcribeSpeechEndpoint = "https://$transcribeSpeechAccountName.cognitiveservices.azure.com/"
-$voiceSpeechEndpoint = "https://$voiceSpeechAccountName.cognitiveservices.azure.com/"
+$foundrySpeechEndpoint = if ($foundryEndpoint.EndsWith("/")) { $foundryEndpoint } else { "$foundryEndpoint/" }
 
 $foundryApiKey = Try-GetCognitiveKey -ResourceGroupName $ResourceGroupName -AccountName $foundryAccountName
-$transcribeSpeechKey = Try-GetCognitiveKey -ResourceGroupName $ResourceGroupName -AccountName $transcribeSpeechAccountName
-$voiceSpeechKey = Try-GetCognitiveKey -ResourceGroupName $ResourceGroupName -AccountName $voiceSpeechAccountName
-$useEntraAuth = [bool]([string]::IsNullOrWhiteSpace($foundryApiKey) -or [string]::IsNullOrWhiteSpace($transcribeSpeechKey) -or [string]::IsNullOrWhiteSpace($voiceSpeechKey))
+$useEntraAuth = [bool]([string]::IsNullOrWhiteSpace($foundryApiKey))
 
 $normalizedFoundryEndpoint = if ($foundryEndpoint.EndsWith("/")) { $foundryEndpoint } else { "$foundryEndpoint/" }
 
@@ -180,18 +351,19 @@ $envContent = @"
 # Resource group: $ResourceGroupName
 # Deployment: $deploymentName
 
-TRANSCRIBE_SPEECH_KEY=$transcribeSpeechKey
-TRANSCRIBE_SPEECH_REGION=$transcribeSpeechRegion
-TRANSCRIBE_SPEECH_ENDPOINT=$transcribeSpeechEndpoint
+TRANSCRIBE_SPEECH_KEY=$foundryApiKey
+TRANSCRIBE_SPEECH_REGION=$FoundryLocation
+TRANSCRIBE_SPEECH_ENDPOINT=$foundrySpeechEndpoint
 TRANSCRIBE_LOCAL_AUDIO_DIR=C:\Flutter\azure-transcription\demodata
 
-VOICE_SPEECH_KEY=$voiceSpeechKey
-VOICE_SPEECH_REGION=$voiceSpeechRegion
-VOICE_SPEECH_ENDPOINT=$voiceSpeechEndpoint
+VOICE_SPEECH_KEY=$foundryApiKey
+VOICE_SPEECH_REGION=$FoundryLocation
+VOICE_SPEECH_ENDPOINT=$foundrySpeechEndpoint
 MAI_VOICE_NAME=en-us-Grant:MAI-Voice-1
 
 AZURE_FOUNDRY_ENDPOINT=$normalizedFoundryEndpoint
 AZURE_FOUNDRY_API_KEY=$foundryApiKey
+AZURE_FOUNDRY_RESOURCE_ID=$foundryAccountId
 MAI_IMAGE_2_DEPLOYMENT_NAME=$maiImage2Deployment
 MAI_IMAGE_2E_DEPLOYMENT_NAME=$maiImage2eDeployment
 
@@ -200,13 +372,12 @@ FOUNDRY_PROJECT_ENDPOINT=$foundryProjectEndpoint
 AZURE_SUBSCRIPTION_ID=$($selectedSubscription.id)
 AZURE_RESOURCE_GROUP=$ResourceGroupName
 AZURE_FOUNDRY_ACCOUNT=$foundryAccountName
-TRANSCRIBE_SPEECH_ACCOUNT=$transcribeSpeechAccountName
-VOICE_SPEECH_ACCOUNT=$voiceSpeechAccountName
 
 USE_ENTRA_AUTH=$($useEntraAuth.ToString().ToLowerInvariant())
-AZURE_TENANT_ID=
-AZURE_CLIENT_ID=
-AZURE_CLIENT_SECRET=
+# Optional service principal auth (uncomment only when you really use SP credentials):
+# AZURE_TENANT_ID=
+# AZURE_CLIENT_ID=
+# AZURE_CLIENT_SECRET=
 "@
 
 $envDirectory = Split-Path -Path $EnvPath -Parent
@@ -228,7 +399,6 @@ if (Test-Path $legacyDeploymentEnvPath) {
 Write-Host "Deployment complete."
 Write-Host "Foundry account: $foundryAccountName"
 Write-Host "Foundry project: $foundryProjectName"
-Write-Host "Transcribe Speech account: $transcribeSpeechAccountName"
-Write-Host "Voice Speech account: $voiceSpeechAccountName"
+Write-Host "Speech endpoints for notebooks are mapped to the Foundry account endpoint."
 Write-Host "Environment file written: $EnvPath"
 Write-Host "Deployment environment snapshot: $deploymentEnvPath"
