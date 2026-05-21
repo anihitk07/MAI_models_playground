@@ -81,6 +81,7 @@ pwsh .\infra\Deploy-MaiFoundry.ps1
 By default, each deployment run now gets a unique naming token (prefix suffix) to avoid Cognitive Services name collisions across regions and old runs.
 The script uses your current Azure CLI subscription context unless you pass `-SubscriptionId`.
 Use `-Location <azure-region>` to set both the resource group location and Foundry location in one parameter.
+Image deployment capacity defaults are now **MAI-Image-2 = 15** and **MAI-Image-2e = 30**.
 
 #### Common deployment options
 
@@ -100,6 +101,11 @@ pwsh .\infra\Deploy-MaiFoundry.ps1 `
 
 # Skip MAI image deployments when quota is unavailable
 pwsh .\infra\Deploy-MaiFoundry.ps1 -SkipImageDeployments
+
+# Override image capacities (defaults: 15 for MAI-Image-2, 30 for MAI-Image-2e)
+pwsh .\infra\Deploy-MaiFoundry.ps1 `
+  -MaiImage2Capacity 15 `
+  -MaiImage2eCapacity 30
 
 # Optional: provide your own run token (otherwise one is auto-generated)
 pwsh .\infra\Deploy-MaiFoundry.ps1 -DeploymentRunId demo01
@@ -128,6 +134,8 @@ pwsh .\infra\Deploy-MaiFoundry.ps1 `
 - **`FlagMustBeSetForRestore` (soft-deleted account exists)**  
   `-Destroy` deletes the resource group and force-purges soft-deleted Cognitive accounts for that group.  
   `-NoUniqueNaming` triggers strict pre-deployment purge so the run fails fast if purge cannot complete.
+- **`IfMatchPreconditionFailed` during nested model deployment updates**  
+  The script automatically retries deployment up to 3 times with short backoff.
 
 #### Post-deployment outputs
 
@@ -534,10 +542,10 @@ az cognitiveservices account deployment create \
   --model-format Microsoft \
   --model-version 2026-02-20 \
   --sku-name GlobalStandard \
-  --sku-capacity 1
+  --sku-capacity 15
 ```
 
-For MAI-Image-2e: replace `--model-name MAI-Image-2 --model-version 2026-02-20` with `--model-name MAI-Image-2e --model-version 2026-04-09`.
+For MAI-Image-2e: replace `--model-name MAI-Image-2 --model-version 2026-02-20` with `--model-name MAI-Image-2e --model-version 2026-04-09` and use `--sku-capacity 30`.
 
 ### API endpoint
 

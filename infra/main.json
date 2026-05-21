@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "3765985606261810262"
+      "templateHash": "16354337004640262969"
     }
   },
   "parameters": {
@@ -118,16 +118,18 @@
     },
     "maiImage2Capacity": {
       "type": "int",
-      "defaultValue": 1,
+      "defaultValue": 15,
       "minValue": 1,
+      "maxValue": 15,
       "metadata": {
         "description": "Capacity for MAI-Image-2 deployment."
       }
     },
     "maiImage2eCapacity": {
       "type": "int",
-      "defaultValue": 1,
+      "defaultValue": 30,
       "minValue": 1,
+      "maxValue": 30,
       "metadata": {
         "description": "Capacity for MAI-Image-2e deployment."
       }

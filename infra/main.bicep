@@ -49,11 +49,13 @@ param maiImage2eSkuName string = 'GlobalStandard'
 
 @description('Capacity for MAI-Image-2 deployment.')
 @minValue(1)
-param maiImage2Capacity int = 1
+@maxValue(15)
+param maiImage2Capacity int = 15
 
 @description('Capacity for MAI-Image-2e deployment.')
 @minValue(1)
-param maiImage2eCapacity int = 1
+@maxValue(30)
+param maiImage2eCapacity int = 30
 
 var prefix = toLower(replace(namePrefix, '-', ''))
 var suffix = substring(uniqueString(subscription().subscriptionId, resourceGroup().id), 0, 6)

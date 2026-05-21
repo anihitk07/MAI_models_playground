@@ -7,6 +7,10 @@ param(
     [string]$NamePrefix = "mai",
     [string]$DeploymentRunId = "",
     [string]$FoundryLocation = "eastus",
+    [ValidateRange(1, 15)]
+    [int]$MaiImage2Capacity = 15,
+    [ValidateRange(1, 30)]
+    [int]$MaiImage2eCapacity = 30,
     [string]$EnvPath = (Join-Path $PSScriptRoot "..\.env"),
     [switch]$SkipImageDeployments,
     [switch]$NoUniqueNaming,
@@ -299,17 +303,55 @@ else {
 
 $deploymentName = "mai-foundry-" + (Get-Date -Format "yyyyMMddHHmmss") + "-$($runId.Substring(0, [Math]::Min(4, $runId.Length)))"
 
-$outputsJson = az deployment group create `
-    --name $deploymentName `
-    --subscription $selectedSubscription.id `
-    --resource-group $ResourceGroupName `
-    --template-file (Join-Path $PSScriptRoot "main.bicep") `
-    --parameters namePrefix=$effectiveNamePrefix `
-                 deployerPrincipalId=$deployerPrincipalId `
-                 foundryLocation=$FoundryLocation `
-                 deployImageModels=$([bool](-not $SkipImageDeployments.IsPresent)) `
-    --query "properties.outputs" `
-    --output json
+$maxDeploymentAttempts = 3
+$outputsJson = $null
+$lastDeploymentError = $null
+$finalDeploymentName = $deploymentName
+
+for ($attempt = 1; $attempt -le $maxDeploymentAttempts; $attempt++) {
+    $attemptDeploymentName = if ($attempt -eq 1) { $deploymentName } else { "$deploymentName-r$attempt" }
+    Write-Host "Starting ARM deployment (attempt $attempt/$maxDeploymentAttempts): $attemptDeploymentName"
+
+    try {
+        $outputsJson = az deployment group create `
+            --name $attemptDeploymentName `
+            --subscription $selectedSubscription.id `
+            --resource-group $ResourceGroupName `
+            --template-file (Join-Path $PSScriptRoot "main.bicep") `
+            --parameters namePrefix=$effectiveNamePrefix `
+                         deployerPrincipalId=$deployerPrincipalId `
+                         foundryLocation=$FoundryLocation `
+                         maiImage2Capacity=$MaiImage2Capacity `
+                         maiImage2eCapacity=$MaiImage2eCapacity `
+                         deployImageModels=$([bool](-not $SkipImageDeployments.IsPresent)) `
+            --query "properties.outputs" `
+            --output json
+
+        $finalDeploymentName = $attemptDeploymentName
+        $lastDeploymentError = $null
+        break
+    }
+    catch {
+        $lastDeploymentError = $_
+        $errorText = $_.Exception.Message
+        $isIfMatchTransient = ($errorText -match "IfMatchPreconditionFailed") -or ($errorText -match "If-Match")
+
+        if ($isIfMatchTransient -and $attempt -lt $maxDeploymentAttempts) {
+            $delaySeconds = 10 * $attempt
+            Write-Warning "Deployment hit transient If-Match precondition failure. Retrying in $delaySeconds seconds..."
+            Start-Sleep -Seconds $delaySeconds
+            continue
+        }
+
+        throw
+    }
+}
+
+if ($lastDeploymentError) {
+    throw $lastDeploymentError
+}
+
+$deploymentName = $finalDeploymentName
 
 if (-not $outputsJson) {
     throw "Deployment completed without outputs."
@@ -366,6 +408,8 @@ AZURE_FOUNDRY_API_KEY=$foundryApiKey
 AZURE_FOUNDRY_RESOURCE_ID=$foundryAccountId
 MAI_IMAGE_2_DEPLOYMENT_NAME=$maiImage2Deployment
 MAI_IMAGE_2E_DEPLOYMENT_NAME=$maiImage2eDeployment
+MAI_IMAGE_2_CAPACITY=$MaiImage2Capacity
+MAI_IMAGE_2E_CAPACITY=$MaiImage2eCapacity
 
 FOUNDRY_PROJECT_NAME=$foundryProjectName
 FOUNDRY_PROJECT_ENDPOINT=$foundryProjectEndpoint

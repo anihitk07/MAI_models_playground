@@ -31,6 +31,12 @@
     },
     "maiImage2eModelVersion": {
       "value": "2026-04-09"
+    },
+    "maiImage2Capacity": {
+      "value": 15
+    },
+    "maiImage2eCapacity": {
+      "value": 30
     }
   }
 }
