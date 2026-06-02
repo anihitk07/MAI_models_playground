@@ -2,13 +2,16 @@
 
 ## Introduction
 
-Microsoft AI (MAI) has released three world-class multimodal AI models, now available in public preview through **Microsoft Foundry**. These are the same models that power Microsoft's own products — Copilot, Bing, PowerPoint, and Azure Speech — and are now accessible to every developer:
+Microsoft AI (MAI) has released a family of world-class multimodal AI models, now available through **Microsoft Foundry**. These are the same models that power Microsoft's own products — Copilot, Bing, PowerPoint, and Azure Speech — and are now accessible to every developer:
 
-| Model | Type | What it does |
-|---|---|---|
-| **MAI-Transcribe-1** | Speech-to-Text | Enterprise-grade transcription across 25 languages |
-| **MAI-Voice-1** | Text-to-Speech | High-fidelity, expressive speech synthesis |
-| **MAI-Image-2** | Text-to-Image | Photorealistic image generation, #3 on Arena.ai |
+| Generation | Model | Type | What it does |
+|---|---|---|---|
+| **GA / Public preview** | **MAI-Transcribe-1** | Speech-to-Text | Enterprise-grade transcription across 25 languages |
+| | **MAI-Voice-1** | Text-to-Speech | High-fidelity, expressive speech synthesis |
+| | **MAI-Image-2** / **MAI-Image-2e** | Text-to-Image | Photorealistic image generation, #3 on Arena.ai |
+| **Latest wave** | **MAI-Transcribe-1.5** | Speech-to-Text | 43 languages, 200-keyword entity biasing, up to 5.7× faster long-form inference |
+| | **MAI-Voice-2-Preview** | Text-to-Speech | Multilingual prompted TTS across 15 languages / 18 locales, expressive control |
+| | **MAI-Image-2.5** | Text-to-Image | Higher fidelity image generation and editing (private preview) |
 
 > 💡 **Try before you code:** All three models are available in the [MAI Playground](https://playground.microsoft.ai) (US only) — no account required for initial experimentation.
 
@@ -18,10 +21,10 @@ Microsoft AI (MAI) has released three world-class multimodal AI models, now avai
 
 After completing this module, you'll be able to:
 
-- ✅ Set up credentials for all three MAI models using `deployment.env`
-- ✅ Transcribe audio files using MAI-Transcribe-1 via the LLM Speech API
-- ✅ Generate expressive speech using MAI-Voice-1 via REST and the Azure Speech SDK
-- ✅ Generate photorealistic images using MAI-Image-2 and MAI-Image-2e via the Foundry API
+- ✅ Set up credentials for every MAI model using a single auto-generated `deployment.env`
+- ✅ Transcribe audio files using MAI-Transcribe-1 (LLM Speech API) and MAI-Transcribe-1.5 (Foundry fast/LLM/batch + entity biasing)
+- ✅ Generate expressive speech using MAI-Voice-1 (REST + Speech SDK) and MAI-Voice-2-Preview (Foundry Speech SDK with Entra `aad#<resource-id>#<token>` flow)
+- ✅ Generate photorealistic images using MAI-Image-2 / MAI-Image-2e and MAI-Image-2.5 via the Foundry API
 - ✅ Calculate and optimize costs for each model
 
 ---
@@ -641,7 +644,48 @@ Valid examples: 768×768, 1024×768, 1024×1024, 1365×768 (=1,048,320 ✅)
 
 ---
 
-## Unit 5: Pricing & Cost Optimization
+## Unit 5: Latest wave — MAI-Transcribe-1.5, MAI-Voice-2-Preview, MAI-Image-2.5
+
+The latest generation of MAI models ships under three Foundry-aligned recipes inside `notebooks/` (`05_MAI_Transcribe_1_5.ipynb`, `06_MAI_Voice_2.ipynb`, `07_MAI_Image_2_5.ipynb`).
+
+### MAI-Transcribe-1.5 — Foundry speech-to-text (notebook 05)
+
+| Attribute | Detail |
+|---|---|
+| **Languages** | **43** (25 from v1 + 18 new in v1.5) |
+| **Long-form speedup** | Up to **5.7×** faster than MAI-Transcribe-1 |
+| **Entity / keyword biasing** | Up to **200 keywords** via `phraseList.phrases` |
+| **Language identification** | Automatic |
+| **Diarization** | Not supported yet (planned) |
+| **Input formats** | WAV · MP3 · FLAC, up to **300 MB / 2 hours** |
+| **Serving regions** | Central US · Sweden Central · Southeast Asia |
+| **Integration patterns covered** | Real-time SDK (microphone), fast multipart REST, LLM enhanced mode, batch submit |
+
+### MAI-Voice-2-Preview — Foundry TTS (notebook 06)
+
+| Attribute | Detail |
+|---|---|
+| **Languages / locales** | **15 languages · 18 locales** (Arabic, Chinese, English, French, German, Hindi, Indonesian, Italian, Japanese, Korean, Portuguese, Russian, Spanish, Thai, Vietnamese) |
+| **Auth** | Speech SDK with Entra `aad#<resource-id>#<token>` (key-auth fallback supported) |
+| **Output** | 24 kHz mono audio (MP3) |
+| **Voice prompting** | 5–60 s audio prompts; gated personal voice flow |
+| **Pricing reference** | **$22 / 1M characters** |
+| **Serving regions** | East US · Sweden Central · Southeast Asia |
+
+### MAI-Image-2.5 — next-gen image generation (notebook 07)
+
+| Attribute | Detail |
+|---|---|
+| **Capabilities** | Higher-fidelity text-to-image generation **and** image editing |
+| **Auth** | API key (private preview) |
+| **Status** | Private preview — terms of access apply |
+| **Notebook flow** | Text-to-image (width/height) + image-edit (`size`) + troubleshooting |
+
+> 🔐 The Foundry-only deployment script (`infra/Deploy-MaiFoundry.ps1`) now wires `MAI_TRANSCRIBE_15_*`, `MAI_VOICE_2_*`, and `AZURE_FOUNDRY_RESOURCE_ID` into the generated `deployment.env` — no standalone Speech resource is provisioned.
+
+---
+
+## Unit 6: Pricing & Cost Optimization
 
 ### Pricing summary
 
@@ -704,7 +748,7 @@ Typical 1024×1024 image (~1,056 image tokens):
 
 ---
 
-## Unit 6: Authentication Best Practices
+## Unit 7: Authentication Best Practices
 
 The notebooks in this repo now default to **Entra ID** (`DefaultAzureCredential`) and use API keys only when `USE_ENTRA_AUTH=false`.
 
@@ -736,7 +780,7 @@ headers = {"Authorization": f"Bearer {token}"}
 
 ---
 
-## Unit 7: Responsible AI
+## Unit 8: Responsible AI
 
 Microsoft developed these MAI models with responsible AI at the forefront:
 
@@ -766,7 +810,7 @@ Microsoft developed these MAI models with responsible AI at the forefront:
 
 ---
 
-## Unit 8: Error Handling & Troubleshooting
+## Unit 9: Error Handling & Troubleshooting
 
 ### Common errors
 
