@@ -22,7 +22,7 @@
       "type": "string",
       "defaultValue": "",
       "metadata": {
-        "description": "Optional principal object ID to grant data-plane access roles (Speech + Foundry)."
+        "description": "Optional principal object ID to grant data-plane access roles on the Foundry account (voice/transcribe/image)."
       }
     },
     "foundryLocation": {

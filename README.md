@@ -41,15 +41,23 @@ After completing this module, you'll be able to:
 MAI_Model_demo/
 ├── deployment.env               ← Auto-generated credentials for notebooks (never commit)
 ├── requirements.txt             ← Python dependencies
-├── 01_MAI_Transcribe_1.ipynb   ← Speech-to-text notebook
-├── 02_MAI_Voice_1.ipynb        ← Text-to-speech notebook
-├── 03_MAI_Image_2.ipynb        ← Text-to-image notebook
+├── notebooks/
+│   ├── 01_MAI_Transcribe_1.ipynb       ← MAI-Transcribe-1 speech-to-text
+│   ├── 02_MAI_Voice_1.ipynb            ← MAI-Voice-1 text-to-speech
+│   ├── 03_MAI_Image_2.ipynb            ← MAI-Image-2 text-to-image
+│   ├── 04_MAI_Image_2_Foundry.ipynb    ← MAI-Image-2 via Foundry endpoint (keyless)
+│   ├── 05_MAI_Transcribe_1_5.ipynb     ← MAI-Transcribe-1.5 (Foundry integration)
+│   ├── 06_MAI_Voice_2.ipynb            ← MAI-Voice-2-Preview (Foundry integration)
+│   └── 07_MAI_Image_2_5.ipynb          ← MAI-Image-2.5 (private preview)
+├── images/                              ← Generated image outputs (gitignored)
+├── audio/                               ← Generated audio outputs (gitignored)
 ├── infra/
-│   ├── main.bicep               ← Foundry + MAI deployment template
-│   ├── main.parameters.json     ← Sample deployment parameters
-│   ├── Deploy-MaiFoundry.ps1    ← End-to-end deploy + deployment.env auto-population script
-│   └── modules/                 ← Reusable Bicep modules
-└── README.md           ← This document
+│   ├── main.bicep                       ← Foundry + MAI deployment template
+│   ├── main.parameters.json             ← Sample deployment parameters
+│   ├── Deploy-MaiFoundry.ps1            ← End-to-end deploy + deployment.env script
+│   └── modules/                         ← Reusable Bicep modules
+├── linkedin-post.md                     ← Launch-day LinkedIn post for this playground
+└── README.md                            ← This document
 ```
 
 ---
@@ -186,13 +194,14 @@ AZURE_FOUNDRY_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
 AZURE_FOUNDRY_API_KEY=
 AZURE_FOUNDRY_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>
 
-# MAI-Transcribe-1 / MAI-Voice-1 (optional explicit overrides)
-TRANSCRIBE_SPEECH_KEY=
-TRANSCRIBE_SPEECH_REGION=eastus
-TRANSCRIBE_SPEECH_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
-VOICE_SPEECH_KEY=
-VOICE_SPEECH_REGION=eastus
-VOICE_SPEECH_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
+# MAI-Transcribe-1.5 / MAI-Voice-2 (Foundry endpoint, no standalone Speech service)
+MAI_TRANSCRIBE_15_KEY=
+MAI_TRANSCRIBE_15_REGION=eastus
+MAI_TRANSCRIBE_15_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
+MAI_VOICE_2_KEY=
+MAI_VOICE_2_REGION=eastus
+MAI_VOICE_2_ENDPOINT=https://<foundry-account>.cognitiveservices.azure.com/
+MAI_VOICE_2_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<foundry-account>
 MAI_VOICE_NAME=en-us-Grant:MAI-Voice-1
 
 # MAI-Image-2 / MAI-Image-2e
@@ -799,7 +808,7 @@ def call_with_retry(fn, max_retries=3, base_delay=1.0):
 | | MAI-Transcribe-1 | MAI-Voice-1 | MAI-Image-2 |
 |---|---|---|---|
 | **Category** | Speech-to-Text | Text-to-Speech | Text-to-Image |
-| **Notebook** | `01_MAI_Transcribe_1.ipynb` | `02_MAI_Voice_1.ipynb` | `03_MAI_Image_2.ipynb` |
+| **Notebook** | `notebooks/01_MAI_Transcribe_1.ipynb` | `notebooks/02_MAI_Voice_1.ipynb` | `notebooks/03_MAI_Image_2.ipynb` |
 | **Pricing** | $0.36/hr | $22/1M chars | $5/1M text + $33/1M img tokens |
 | **Key strength** | #1 FLEURS, 50% cheaper GPU | 60s audio in <1s | #3 Arena.ai, superior text rendering |
 | **API style** | REST multipart | REST SSML / SDK | REST JSON |

@@ -1,8 +1,7 @@
 .groupcode
-*.wav
-*.mp3
-*.png
 *.env
 .env.example
 images/
+audio/
+notebooks/.ipynb_checkpoints/
 *.docx

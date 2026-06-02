@@ -5,7 +5,7 @@ targetScope = 'resourceGroup'
 @maxLength(10)
 param namePrefix string = 'mai'
 
-@description('Optional principal object ID to grant data-plane access roles (Speech + Foundry).')
+@description('Optional principal object ID to grant data-plane access roles on the Foundry account (voice/transcribe/image).')
 param deployerPrincipalId string = ''
 
 @description('Foundry account location.')

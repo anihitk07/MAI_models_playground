@@ -380,7 +380,7 @@ $foundryProjectName = $outputs.foundryProjectName.value
 $foundryProjectEndpoint = $outputs.foundryProjectEndpoint.value
 $maiImage2Deployment = $outputs.maiImage2Deployment.value
 $maiImage2eDeployment = $outputs.maiImage2eDeployment.value
-$foundrySpeechEndpoint = if ($foundryEndpoint.EndsWith("/")) { $foundryEndpoint } else { "$foundryEndpoint/" }
+$foundryModelEndpoint = if ($foundryEndpoint.EndsWith("/")) { $foundryEndpoint } else { "$foundryEndpoint/" }
 
 $foundryApiKey = Try-GetCognitiveKey -ResourceGroupName $ResourceGroupName -AccountName $foundryAccountName
 $useEntraAuth = [bool]([string]::IsNullOrWhiteSpace($foundryApiKey))
@@ -393,14 +393,17 @@ $envContent = @"
 # Resource group: $ResourceGroupName
 # Deployment: $deploymentName
 
-TRANSCRIBE_SPEECH_KEY=$foundryApiKey
-TRANSCRIBE_SPEECH_REGION=$FoundryLocation
-TRANSCRIBE_SPEECH_ENDPOINT=$foundrySpeechEndpoint
+# MAI-Transcribe-1.5 (Foundry endpoint; no standalone SpeechServices resource)
+MAI_TRANSCRIBE_15_KEY=$foundryApiKey
+MAI_TRANSCRIBE_15_REGION=$FoundryLocation
+MAI_TRANSCRIBE_15_ENDPOINT=$foundryModelEndpoint
 TRANSCRIBE_LOCAL_AUDIO_DIR=C:\Flutter\azure-transcription\demodata
 
-VOICE_SPEECH_KEY=$foundryApiKey
-VOICE_SPEECH_REGION=$FoundryLocation
-VOICE_SPEECH_ENDPOINT=$foundrySpeechEndpoint
+# MAI-Voice-2 / MAI-Voice-1 (Foundry endpoint)
+MAI_VOICE_2_KEY=$foundryApiKey
+MAI_VOICE_2_REGION=$FoundryLocation
+MAI_VOICE_2_ENDPOINT=$foundryModelEndpoint
+MAI_VOICE_2_RESOURCE_ID=$foundryAccountId
 MAI_VOICE_NAME=en-us-Grant:MAI-Voice-1
 
 AZURE_FOUNDRY_ENDPOINT=$normalizedFoundryEndpoint
@@ -443,6 +446,6 @@ if (Test-Path $legacyDeploymentEnvPath) {
 Write-Host "Deployment complete."
 Write-Host "Foundry account: $foundryAccountName"
 Write-Host "Foundry project: $foundryProjectName"
-Write-Host "Speech endpoints for notebooks are mapped to the Foundry account endpoint."
+Write-Host "Voice/transcribe endpoints are mapped to the Foundry account endpoint (no standalone Speech service provisioned)."
 Write-Host "Environment file written: $EnvPath"
 Write-Host "Deployment environment snapshot: $deploymentEnvPath"
