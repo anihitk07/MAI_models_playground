@@ -56,7 +56,6 @@ MAI_Model_demo/
 │   ├── main.parameters.json             ← Sample deployment parameters
 │   ├── Deploy-MaiFoundry.ps1            ← End-to-end deploy + deployment.env script
 │   └── modules/                         ← Reusable Bicep modules
-├── linkedin-post.md                     ← Launch-day LinkedIn post for this playground
 └── README.md                            ← This document
 ```
 

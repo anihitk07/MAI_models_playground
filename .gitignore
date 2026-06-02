@@ -5,3 +5,8 @@ images/
 audio/
 notebooks/.ipynb_checkpoints/
 *.docx
+
+# Local-only drafts and reference notes (never commit)
+linkedin-post.md
+MAI-Voice-2 (Model Card on Foundry).md
+MAI-Transcribe-1.5 (Model Card on Foundry) v2.md
