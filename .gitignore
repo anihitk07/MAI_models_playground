@@ -1,8 +1,8 @@
 .groupcode
 *.env
 .env.example
-images/
-audio/
+/images/
+/audio/
 notebooks/.ipynb_checkpoints/
 *.docx
 

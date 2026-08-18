@@ -51,7 +51,13 @@ MAI_Model_demo/
 │   ├── 04_MAI_Image_2_Foundry.ipynb    ← MAI-Image-2 via Foundry endpoint (keyless)
 │   ├── 05_MAI_Transcribe_1_5.ipynb     ← MAI-Transcribe-1.5 (Foundry integration)
 │   ├── 06_MAI_Voice_2.ipynb            ← MAI-Voice-2-Preview (Foundry integration)
-│   └── 07_MAI_Image_2_5.ipynb          ← MAI-Image-2.5 (private preview)
+│   ├── 07_MAI_Image_2_5.ipynb          ← MAI-Image-2.5 (private preview)
+│   └── model-releases/                 ← Vendored capsules from microsoft-foundry/model-releases
+│       ├── mai-image-2.5/              ← Baseline image generation + editing
+│       ├── mai-image-2.5-flash/        ← Production-throughput batch generation
+│       ├── mai-image-2.5-pro/          ← Portrait quality, signage/text rendering
+│       ├── mai-transcribe-1.5/         ← Multilingual transcription + noise-robustness benchmark
+│       └── multi-model-scenarios/      ← Cross-model walkthroughs (e.g. Image family comparison)
 ├── images/                              ← Generated image outputs (gitignored)
 ├── audio/                               ← Generated audio outputs (gitignored)
 ├── infra/
@@ -682,6 +688,25 @@ The latest generation of MAI models ships under three Foundry-aligned recipes in
 | **Notebook flow** | Text-to-image (width/height) + image-edit (`size`) + troubleshooting |
 
 > 🔐 The Foundry-only deployment script (`infra/Deploy-MaiFoundry.ps1`) now wires `MAI_TRANSCRIBE_15_*`, `MAI_VOICE_2_*`, and `AZURE_FOUNDRY_RESOURCE_ID` into the generated `deployment.env` — no standalone Speech resource is provisioned.
+
+### Vendored capsules — `notebooks/model-releases/`
+
+In addition to the hand-authored notebooks above, this repo mirrors the official sample notebooks
+published in [`microsoft-foundry/model-releases`](https://github.com/microsoft-foundry/model-releases/tree/main/models/microsoft-ai).
+Each has been verified (valid notebook JSON, no embedded execution output, no broken links, no
+confidential wording) before being committed here:
+
+| Capsule | Notebook(s) | Highlights |
+|---|---|---|
+| [`mai-image-2.5/`](notebooks/model-releases/mai-image-2.5/) | `mai-image-2.5.ipynb` | Text-to-image generation, aspect ratios, image-to-image editing |
+| [`mai-image-2.5-flash/`](notebooks/model-releases/mai-image-2.5-flash/) | `mai-image-2.5-flash.ipynb` | Batch generation, throughput measurement, concurrent requests |
+| [`mai-image-2.5-pro/`](notebooks/model-releases/mai-image-2.5-pro/) | `mai-image-2.5-pro.ipynb` | Portrait quality, signage/text rendering, visual reasoning |
+| [`mai-transcribe-1.5/`](notebooks/model-releases/mai-transcribe-1.5/) | `mai-transcribe-1.5.ipynb`, `mai-transcribe-1.5-noise-benchmark.ipynb` | Multilingual transcription, keyword biasing, WER/CER noise-robustness sweep |
+| [`multi-model-scenarios/mai-image-family-walkthrough/`](notebooks/model-releases/multi-model-scenarios/mai-image-family-walkthrough/) | `mai-image-family-walkthrough.ipynb` | Compare MAI-Image-2.5 base / Flash / Pro on the same prompts |
+
+> ℹ️ These vendored notebooks use the upstream repo's own env-var convention
+> (`MICROSOFT_FOUNDRY_ENDPOINT`, `MICROSOFT_FOUNDRY_API_KEY`, `AZURE_MAI_*_DEPLOYMENT`) — documented in
+> each capsule's `README.md` — which is independent of this repo's `deployment.env`.
 
 ---
 
