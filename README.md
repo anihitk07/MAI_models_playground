@@ -58,6 +58,8 @@ MAI_Model_demo/
 │       ├── mai-image-2.5-pro/          ← Portrait quality, signage/text rendering
 │       ├── mai-transcribe-1.5/         ← Multilingual transcription + noise-robustness benchmark
 │       └── multi-model-scenarios/      ← Cross-model walkthroughs (e.g. Image family comparison)
+├── mai-foundry-demos/                   ← Vendored Streamlit app (ppiova/mai-foundry-demos)
+│                                          Thinking-1, Image-2.5, Transcribe-1.5, Voice-2 demos
 ├── images/                              ← Generated image outputs (gitignored)
 ├── audio/                               ← Generated audio outputs (gitignored)
 ├── infra/
@@ -885,7 +887,33 @@ def call_with_retry(fn, max_retries=3, base_delay=1.0):
 
 ---
 
-## Additional resources
+## mai-foundry-demos: a presentation-ready Streamlit app
+
+`mai-foundry-demos/` vendors [ppiova/mai-foundry-demos](https://github.com/ppiova/mai-foundry-demos)
+(tag `v1.1.1`) — a single Streamlit app that turns four MAI capabilities into short, story-driven
+demos suited for a live 30–45 minute walkthrough rather than a notebook cell-by-cell read:
+
+| Demo | Model(s) | What it shows |
+|---|---|---|
+| 🧠 Thinking · Decision Agent | MAI-Thinking-1 | Tool-using reasoning over a cloud estate / migration constraints, with streaming + tool calls |
+| 🎨 Image · Surgical Edit | MAI-Image-2.5 | Controlled image editing that preserves everything except the requested change |
+| 🎙️ Transcribe · Entity biasing | MAI-Transcribe-1.5 | Domain-aware transcription using phrase-list biasing and verbatim mode |
+| 🗣️ Voice · Personalities | MAI-Voice-2 | The same line read in three emotional styles (Neutral / Empathy / Excited) |
+| 🎬 Multimodal finale | All four | Chains the four capabilities into one end-to-end campaign scenario |
+
+Every demo runs 🟢 LIVE against real Foundry endpoints when `.env` is populated, and degrades to a
+deterministic 🟡 FALLBACK otherwise — so a live network hiccup on stage never kills the demo.
+
+**Deployed and tested end-to-end** against a fresh Foundry account (`infra/main.bicep`,
+region `eastus`). This tenant enforces `disableLocalAuth=true` via Azure Policy (no api-key can be
+issued), so a local patch (see `mai-foundry-demos/README.md`) adds an Entra ID bearer-token
+fallback. Result: Thinking-1, Image-2.5, and Transcribe-1.5 ran 🟢 LIVE via Entra ID; Voice-2's
+regional TTS endpoint requires an actual api-key and stayed 🟡 FALLBACK in this tenant. See
+`mai-foundry-demos/README.md` for the full breakdown and setup instructions.
+
+---
+
+
 
 - [Microsoft Foundry portal](https://ai.azure.com)
 - [MAI Playground](https://playground.microsoft.ai)

@@ -1,6 +1,8 @@
 .groupcode
 *.env
 .env.example
+# mai-foundry-demos ships its own credential template; keep it tracked.
+!mai-foundry-demos/.env.example
 /images/
 /audio/
 notebooks/.ipynb_checkpoints/
